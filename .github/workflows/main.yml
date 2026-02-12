@@ -1,5 +1,7 @@
 name: PFE Security Pipeline
-
+permissions:
+  contents: read
+  issues: write
 on:
   push:
     branches: [ "main" ]
