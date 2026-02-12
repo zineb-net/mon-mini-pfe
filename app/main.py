@@ -1,5 +1,11 @@
-print("Bonjour, ceci est le début de mon PFE DevSecOps !")
-def addition(a, b):
-    return a + b
+from flask import Flask
 
-print(f"Le test 2 + 3 = {addition(2, 3)}")
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return "Bienvenue sur mon PFE Sécurisé !"
+
+if __name__ == '__main__':
+    # On lance l'application sur le port 5000 et on la rend accessible (0.0.0.0)
+    app.run(host='0.0.0.0', port=5000)
