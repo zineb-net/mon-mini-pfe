@@ -1,26 +1,45 @@
-name: Mon Premier Pipeline PFE
+name: PFE Security Pipeline
 
-# 1. QUAND ? (Le Déclencheur)
-# Le robot se réveille quand on pousse du code sur la branche 'main'
 on:
   push:
     branches: [ "main" ]
 
-# 2. QUOI ? (Les Jobs)
 jobs:
-  dire-bonjour:
-    # Le robot utilise un ordinateur Linux prêté par GitHub
+  test-securite:
     runs-on: ubuntu-latest
+    name: Build & Attack
 
     steps:
-      # Étape A : Le robot télécharge ton code
-      - name: Récupération du code
-        uses: actions/checkout@v3
+      # 1. On récupère ton code
+      - name: Checkout du code
+        uses: actions/checkout@v4
 
-      # Étape B : Le robot exécute une commande
-      - name: Message de bienvenue
-        run: echo "Bravo Zainab ! Le pipeline fonctionne et le code est sécurisé."
+      # 2. On construit l'image Docker (Comme tu as fait en local)
+      - name: Construction de l'image Docker
+        run: docker build -t mon-app-pfe .
 
-      # Étape C : Le robot liste les fichiers pour prouver qu'il les voit
-      - name: Vérifier les fichiers
-        run: ls -la
+      # 3. On lance l'application en arrière-plan (Le serveur cible)
+      - name: Lancement du conteneur
+        run: docker run -d -p 5000:5000 --name cible mon-app-pfe
+
+      # 4. Petite pause pour être sûr que le serveur est prêt
+      - name: Attente du démarrage
+        run: sleep 5
+
+      # 5. L'ATTAQUE (Le Scanner ZAP)
+      # Le robot va scanner http://localhost:5000
+      - name: Scan OWASP ZAP
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:5000'
+          rules_file_name: '.zap/rules.tsv' # Fichier de règles (optionnel mais recommandé)
+          cmd_options: '-a' # Scan actif
+
+      # 6. Sauvegarde du rapport (Artifact)
+      # Si le scan trouve des failles, on veut pouvoir lire le rapport
+      - name: Sauvegarder le Rapport ZAP
+        if: always() # Toujours faire ça, même si le scan échoue
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-de-securite
+          path: report_html.html
