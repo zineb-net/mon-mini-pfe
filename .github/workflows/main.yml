@@ -2,9 +2,15 @@ name: PFE Security Pipeline
 permissions:
   contents: read
   issues: write
+
 on:
   push:
     branches: [ "main" ]
+  # AJOUT : Permet le lancement via le bouton Lovable (via ton API)
+  repository_dispatch:
+    types: [launch-scan]
+  # AJOUT : Permet le lancement manuel depuis GitHub pour les tests
+  workflow_dispatch:
 
 jobs:
   test-securite:
@@ -12,42 +18,39 @@ jobs:
     name: Build & Attack
 
     steps:
-      # 1. On récupère ton code
+      # 1. Récupération du code
       - name: Checkout du code
         uses: actions/checkout@v4
 
-      # 2. On construit l'image Docker
+      # 2. Construction de l'image Docker
       - name: Construction de l'image Docker
         run: docker build -t mon-app-pfe .
 
-      # 3. On lance l'application en arrière-plan
+      # 3. Lancement de l'application
       - name: Lancement du conteneur
         run: docker run -d -p 5000:5000 --name cible mon-app-pfe
 
-      # 4. Petite pause pour être sûr que le serveur est prêt
       - name: Attente du démarrage
         run: sleep 5
 
-      # ========================================================
-      # 4-BIS. ÉTAPE DE DEBUG (AJOUTÉE)
-      # On demande à Docker : "Dis-nous ce qu'il se passe dedans !"
-      # ========================================================
+      # 4. Debugging
       - name: Debug - Afficher les logs du conteneur
         run: docker logs cible
 
-      # 5. L'ATTAQUE (Le Scanner ZAP)
+      # 5. L'ATTAQUE (ZAP) - Adaptée pour accepter une cible dynamique
       - name: Scan OWASP ZAP
         uses: zaproxy/action-baseline@v0.14.0
         with:
-          target: 'http://localhost:5000'
+          # On utilise soit localhost (push), soit la cible envoyée par le bouton (dispatch)
+          target: ${{ github.event.client_payload.target || 'http://localhost:5000' }}
           rules_file_name: '.zap/rules.tsv'
           cmd_options: '-a'
-          fail_action: false # J'ai ajouté ceci pour que le pipeline reste VERT même si ZAP trouve des failles
+          fail_action: false 
 
       # 6. Sauvegarde du rapport
       - name: Sauvegarder le Rapport ZAP
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-de-securite
-          path: report_html.html
+          name: rapport-de-securite-${{ github.run_id }}
+          path: report_html.html  
